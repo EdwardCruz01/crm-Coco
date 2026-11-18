@@ -1,0 +1,58 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {JSDOM} from 'jsdom';
+const dom=new JSDOM('<!doctype html><body><main id="app"></main></body>',{url:'http://localhost/'});
+for(const key of ['window','document','localStorage','FormData','CustomEvent'])globalThis[key]=dom.window[key];
+dom.window.HTMLElement.prototype.scrollIntoView=function(){};
+dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+dom.window.HTMLDialogElement.prototype.close=function(){this.open=false;setTimeout(()=>this.dispatchEvent(new dom.window.Event('close')),0);};
+URL.createObjectURL=()=> 'blob:qa-image';URL.revokeObjectURL=()=>{};
+const backend=await import('../js/backend.js');
+const {config}=await import('../js/config.js');config.url='';config.key='';
+const {useCrm}=await import('../js/store.js');
+const {openProspect,openContact}=await import('../js/prospect-ui.js');
+const verification=await import('../js/verification-ui.js');
+const tick=()=>new Promise(r=>setTimeout(r,15));
+const change=el=>el.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
+backend.enterDemo('admin','1234');
+const cid=useCrm().clients[0].id;
+test('WhatsApp ofrece plantillas y prospecto, y pasar al editor no lo cierra',async()=>{
+ openContact(cid);let d=document.querySelector('dialog');
+ const choice=d.querySelector('#contact-choice');assert.ok([...choice.options].some(o=>o.text==='Enviar prospecto'));
+ assert.ok(d.querySelector('#contact-text').value.includes(useCrm().clients[0].name));
+ choice.value='__prospect__';change(choice);assert.equal(d.querySelector('#contact-message').hidden,true);assert.equal(d.querySelector('#contact-prospect').hidden,false);
+ d.querySelector('[data-edit]').click();await tick();
+ assert.ok(d.open);assert.ok(d.querySelector('#prospect-form'));assert.equal(d.querySelector('[name=fullName]').value,useCrm().clients[0].name);
+});
+test('editor adapta campos de copago y departamento, guarda vacíos y se puede reabrir',async()=>{
+ openProspect(cid);const d=document.querySelector('dialog'),f=d.querySelector('form');
+ f.elements.jointPurchase.value='Sí';change(f.elements.jointPurchase);assert.equal(f.querySelector('[data-prospect-field=jointName]').hidden,false);f.elements.jointName.value='Acompañante';
+ f.elements.projectId.value='p5';change(f.elements.projectId);assert.equal(f.elements.projectType.value,'Departamento');assert.equal(f.querySelector('[data-prospect-field=level]').hidden,false);f.elements.level.value='4';
+ f.elements.fullName.value='';f.elements.email.value='';f.elements.price.value='';
+ await f.onsubmit({preventDefault(){},submitter:f.querySelector('[value=save]')});await tick();
+ assert.equal(useCrm().clients.find(c=>c.id===cid).prospect.fullName,'');
+ openProspect(cid);await tick();const next=d.querySelector('form');assert.equal(next.elements.fullName.value,'');assert.equal(next.elements.level.value,'4');
+ next.elements.projectId.value='p1';change(next.elements.projectId);assert.equal(next.querySelector('[data-prospect-field=level]').hidden,true);
+ next.elements.jointPurchase.value='No';change(next.elements.jointPurchase);assert.equal(next.querySelector('[data-prospect-field=jointName]').hidden,true);
+ d.close();await tick();
+});
+test('facial muestra previsualización, requiere consentimiento y no almacena la foto',async()=>{
+ verification.setVerificationMode('facial');document.querySelector('#app').innerHTML=verification.verificationMarkup();verification.mountVerification();await tick();
+ const f=document.querySelector('#identity-form'),input=f.querySelector('#identity-photo');
+ const file=new dom.window.File(['qa'],'foto.png',{type:'image/png'});Object.defineProperty(input,'files',{configurable:true,value:[file]});change(input);
+ assert.equal(f.querySelector('.photo-drop img').hidden,false);
+ f.elements.declaredName.value='Cliente facial QA';
+ const event={preventDefault(){},submitter:f.querySelector('[type=submit]')||f.querySelector('.verification-submit')};
+ await f.onsubmit(event);assert.match(f.querySelector('.error').textContent,/autorización/);
+ f.elements.consent.checked=true;await f.onsubmit(event);
+ assert.match(document.querySelector('#identity-result').textContent,/No acredita identidad/);
+ const records=JSON.parse(localStorage.getItem('coco-verifications-demo-v1'));assert.equal(records[0].name,'Cliente facial QA');assert.equal(records[0].consent,true);assert.ok(!JSON.stringify(records).includes('blob:qa-image'));assert.ok(!Object.hasOwn(records[0],'photo'));
+});
+test('DNI valida ocho dígitos y guarda pendiente, sin inventar identidad',async()=>{
+ verification.setVerificationMode('dni');document.querySelector('#app').innerHTML=verification.verificationMarkup();verification.mountVerification();await tick();
+ const f=document.querySelector('#identity-form');f.elements.clientId.value=cid;change(f.elements.clientId);assert.equal(f.elements.declaredName.value,useCrm().clients.find(c=>c.id===cid).name);
+ f.elements.consent.checked=true;f.elements.dni.value='123';const event={preventDefault(){},submitter:f.querySelector('.verification-submit')};await f.onsubmit(event);assert.match(f.querySelector('.error').textContent,/8 dígitos/);
+ f.elements.dni.value='12345678';await f.onsubmit(event);assert.match(document.querySelector('#identity-result').textContent,/Pendiente de proveedor/);assert.match(document.querySelector('#identity-result').textContent,/No confirmada/);
+ assert.equal(JSON.parse(localStorage.getItem('coco-verifications-demo-v1'))[0].status,'pending_provider');
+ const search=document.querySelector('#verification-search');search.value='no existe';search.dispatchEvent(new dom.window.Event('input'));assert.ok([...document.querySelectorAll('[data-record]')].every(b=>b.hidden));
+});

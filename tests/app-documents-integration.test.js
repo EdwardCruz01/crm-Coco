@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {JSDOM} from 'jsdom';
+const dom=new JSDOM('<!doctype html><body><div id="app"></div><dialog id="modal"></dialog><div id="toast"></div></body>',{url:'http://localhost/#/auth'});
+for(const key of ['window','document','location','localStorage','FormData','CustomEvent'])globalThis[key]=dom.window[key];
+dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+dom.window.HTMLDialogElement.prototype.close=function(){this.open=false;setTimeout(()=>this.dispatchEvent(new dom.window.Event('close')),0);};
+const interval=globalThis.setInterval;globalThis.setInterval=(fn,ms)=>{const id=interval(fn,ms);id.unref();return id;};
+const {config}=await import('../js/config.js');config.url='';config.key='';
+await import('../js/app.js');
+const tick=()=>new Promise(r=>setTimeout(r,20));
+test('asesor accede al prospecto desde clientes y a la nueva verificación',async()=>{
+ const f=document.querySelector('#auth');f.elements.email.value='asesor';f.elements.password.value='1234';await f.onsubmit({preventDefault(){},currentTarget:f});await tick();
+ assert.equal(document.querySelector('h1').textContent,'Clientes');
+ assert.equal(document.querySelector('a[href="#/usuarios"]'),null);
+ document.querySelector('[data-action="contact"]').click();await tick();
+ const choice=document.querySelector('#contact-choice');choice.value='__prospect__';choice.dispatchEvent(new dom.window.Event('change'));
+ document.querySelector('[data-edit]').click();await tick();assert.ok(document.querySelector('#prospect-form'));
+ location.hash='/verificacion';await tick();assert.equal(document.querySelector('.prospect-dialog').open,false);assert.ok(document.querySelector('#identity-form'));assert.ok(document.querySelector('.photo-drop'));assert.ok(document.querySelector('#identity-result'));
+ document.querySelector('[data-action="verification-mode"][data-id="dni"]').click();await tick();assert.ok(document.querySelector('.dni-provider'));assert.equal(document.querySelector('.photo-drop'),null);
+});

@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {crm,useCrm,connectCrm,flushCrm,isValidPeruMobile,normalizePhone,findDuplicate,compatibility} from '../js/store.js';
+import {canAccess} from '../js/permissions.js';
+import {validateVerification} from '../js/verification.js';
+globalThis.window={dispatchEvent(){}};
+const initial=structuredClone(useCrm());
+test('normaliza celulares y rechaza formatos inválidos',()=>{assert.equal(normalizePhone('987 654 321'),'51987654321');assert.equal(isValidPeruMobile('123'),false);});
+test('duplicados comparan teléfono normalizado y correo sin mayúsculas',()=>{const c={id:'1',phone:'987654321',email:'TEST@example.com'};assert.equal(findDuplicate([c],{phone:'+51 987654321'}),c);assert.equal(findDuplicate([c],{phone:'999999999',email:'test@example.com'}),c);assert.equal(findDuplicate([c],{phone:c.phone},'1'),undefined);});
+test('roles cierran acceso sin autorización',()=>{assert.equal(canAccess(null,'/clientes'),false);assert.equal(canAccess('asesor','/usuarios'),false);assert.equal(canAccess('asesor','/clientes/c1'),true);assert.equal(canAccess('admin','/reportes'),true);});
+test('verificación exige consentimiento y DNI válido',()=>{assert.ok(validateVerification('dni','Ana','12345678',false,false));assert.ok(validateVerification('dni','Ana','123',false,true));assert.equal(validateVerification('dni','Ana','12345678',false,true),'');assert.ok(validateVerification('facial','Ana','',false,true));});
+test('compatibilidad queda entre cero y cien',()=>{for(const c of initial.clients)for(const p of initial.projects){const r=compatibility(c,p);assert.ok(r.score>=0&&r.score<=100);}});
+test('visita y su interacción se guardan en un único lote',async()=>{let writes=0;connectCrm(structuredClone(initial),'Admin','admin',async()=>{writes++;});crm.saveVisit({clientId:initial.clients[0].id,projectId:'p1',advisorId:'a1',date:new Date().toISOString(),location:'Oficina',notes:'',status:'Pendiente'});await flushCrm();assert.equal(writes,1);assert.equal(useCrm().visits.length,initial.visits.length+1);assert.equal(useCrm().clients[0].interactions.length,initial.clients[0].interactions.length+1);});
+test('fallo de persistencia revierte el estado completo',async()=>{connectCrm(structuredClone(initial),'Admin','admin',async()=>{throw Error('Servidor no disponible');});crm.toggleArchive(initial.clients[0].id);await assert.rejects(flushCrm());assert.deepEqual(useCrm(),initial);});
+test('asesor no modifica proyectos',()=>{connectCrm(structuredClone(initial),'Asesor','asesor',async()=>{});assert.throws(()=>crm.saveProject(initial.projects[0]),/administradores/);});
