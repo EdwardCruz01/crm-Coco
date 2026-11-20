@@ -2,6 +2,8 @@
 export const CHANNELS = [
   "Caseta",
   "Facebook",
+  "Marketplace",
+  "Adds",
   "Instagram",
   "WhatsApp",
   "Página web",
@@ -72,6 +74,7 @@ export const FIELDS = [
   ["issuePlace", "Lugar de emisión"],
   ["issueDate", "Fecha de emisión", "date"],
   ["separationUntil", "Vigencia de separación hasta", "date"],
+  ["observation", "Observación", "textarea"],
 ];
 export function makeProspect(client = {}, projects = [], advisors = []) {
   if (client.prospect) return structuredClone(client.prospect);

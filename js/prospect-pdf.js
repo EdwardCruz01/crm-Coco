@@ -147,6 +147,7 @@ export function createProspectPdf(jsPDF, input, background) {
     ["FECHA", date(p.issueDate)],
     ["VIGENCIA DE SEPARACIÓN HASTA", date(p.separationUntil)],
   ]);
+  row([["OBSERVACIÓN", p.observation]]);
   // La nota legal está incluida en la imagen original y se conserva intacta.
   const pages = doc.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {

@@ -29,9 +29,15 @@ test('editor adapta campos de copago y departamento, guarda vacíos y se puede r
  f.elements.jointPurchase.value='Sí';change(f.elements.jointPurchase);assert.equal(f.querySelector('[data-prospect-field=jointName]').hidden,false);f.elements.jointName.value='Acompañante';
  f.elements.projectId.value='p5';change(f.elements.projectId);assert.equal(f.elements.projectType.value,'Departamento');assert.equal(f.querySelector('[data-prospect-field=level]').hidden,false);f.elements.level.value='4';
  f.elements.fullName.value='';f.elements.email.value='';f.elements.price.value='';
+ f.elements.observation.value='Coordinar la firma para el próximo viernes.';
+ for(const channel of ['TikTok','Facebook','Marketplace','Adds','Referido']){
+  const inputs=f.querySelectorAll(`[name="channels"][value="${channel}"]`);assert.equal(inputs.length,1);inputs[0].checked=true;
+ }
  await f.onsubmit({preventDefault(){},submitter:f.querySelector('[value=save]')});await tick();
  assert.equal(useCrm().clients.find(c=>c.id===cid).prospect.fullName,'');
  openProspect(cid);await tick();const next=d.querySelector('form');assert.equal(next.elements.fullName.value,'');assert.equal(next.elements.level.value,'4');
+ assert.equal(next.elements.observation.value,'Coordinar la firma para el próximo viernes.');
+ for(const channel of ['TikTok','Facebook','Marketplace','Adds','Referido'])assert.equal(next.querySelector(`[name="channels"][value="${channel}"]`).checked,true);
  next.elements.projectId.value='p1';change(next.elements.projectId);assert.equal(next.querySelector('[data-prospect-field=level]').hidden,true);
  next.elements.jointPurchase.value='No';change(next.elements.jointPurchase);assert.equal(next.querySelector('[data-prospect-field=jointName]').hidden,true);
  d.close();await tick();

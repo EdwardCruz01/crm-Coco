@@ -1,3 +1,5 @@
+> Actualización 20/11/2026: se añadieron Marketplace y Adds a los canales existentes (Facebook, TikTok y Referido ya estaban). El campo opcional Observación se guarda con cada prospecto, se puede editar y aparece sobre la nota legal en el PDF. Los textos largos continúan en otra página sin invadir la nota. No requiere una migración SQL: forma parte del prospecto guardado en el cliente.
+
 > Actualización 18/11/2026: Supabase ya está instalado y probado. El detalle actualizado está en VALIDACION-SUPABASE.md. Las notas de conexión pendiente que siguen describen la entrega anterior.
 
 # Prospectos y verificación

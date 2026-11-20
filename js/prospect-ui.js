@@ -81,11 +81,12 @@ export function openProspect(id) {
       "",
     )}<fieldset class="prospect-section"><legend>04 · ¿Cómo se enteró del proyecto?</legend><div class="channel-grid">${CHANNELS.map((ch) => `<label><input type="checkbox" name="channels" value="${esc(ch)}" ${p.channels?.includes(ch) ? "checked" : ""}>${esc(ch)}</label>`).join("")}</div></fieldset><fieldset class="prospect-section"><legend>05 · Promotor y visita</legend><div class="fields">${FIELDS.slice(
     36,
+    42,
   )
     .map((f) => inputField(f, p))
     .join(
       "",
-    )}</div></fieldset><p class="muted">La nota de separaciones de la base COCO se incluye en todos los documentos, sin modificaciones.</p><p class="error" role="alert"></p><footer class="sticky-actions"><button type="button" data-close>Cancelar</button><button name="intent" value="save">Guardar cambios</button><button class="primary" name="intent" value="pdf">Guardar y ver prospecto</button></footer></form>`;
+    )}</div></fieldset><fieldset class="prospect-section"><legend>06 · Observación</legend><p class="muted">Indica algún caso especial. Es opcional y aparecerá encima de la nota legal del documento.</p><div class="fields">${inputField(FIELDS.find(([key]) => key === "observation"), p)}</div></fieldset><p class="muted">La nota de separaciones de la base COCO se incluye en todos los documentos, sin modificaciones.</p><p class="error" role="alert"></p><footer class="sticky-actions"><button type="button" data-close>Cancelar</button><button name="intent" value="save">Guardar cambios</button><button class="primary" name="intent" value="pdf">Guardar y ver prospecto</button></footer></form>`;
   d.showModal();
   d.querySelectorAll("[data-close]").forEach((b) => (b.onclick = () => d.close()));
   const form = d.querySelector("form");
